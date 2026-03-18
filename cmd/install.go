@@ -12,15 +12,19 @@ import (
 
 var installOnly []string
 var installPrefix string
+var installRef string
 
 var installCmd = &cobra.Command{
 	Use:   "install [org/repo]",
 	Short: "Install skills from a GitHub repo",
 	Long: `Fetch a GitHub repo and install its agent skills into ~/.agents/skills/.
 
-The repo is downloaded as a tarball from the main branch, scanned for
-directories containing a SKILL.md file, and each discovered skill is
-copied to ~/.agents/skills/{prefix}__{skill-name}.
+The repo is downloaded as a tarball, scanned for directories containing
+a SKILL.md file, and each discovered skill is copied to
+~/.agents/skills/{prefix}__{skill-name}.
+
+By default, the repo's default branch is used. Use --ref to specify a
+branch, tag, or commit SHA.
 
 The default prefix is {org}__{repo} (e.g., anthropics__skills), but can
 be overridden with --prefix. Use --only to pick specific skills.
@@ -28,8 +32,9 @@ be overridden with --prefix. Use --only to pick specific skills.
 Examples:
   agent-buddy install anthropics/skills
   agent-buddy install anthropics/skills --only pdf,docx
-  agent-buddy install anthropics/skills --only pdf --prefix anthropics`,
-	Args:  cobra.ExactArgs(1),
+  agent-buddy install anthropics/skills --only pdf --prefix anthropics
+  agent-buddy install anthropics/skills --ref v1.0.0`,
+	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		orgRepo := args[0]
 		parts := strings.SplitN(orgRepo, "/", 2)
@@ -39,7 +44,7 @@ Examples:
 		org, repo := parts[0], parts[1]
 
 		fmt.Printf("Fetching %s...\n", orgRepo)
-		tmpDir, err := github.FetchAndExtract(orgRepo)
+		tmpDir, err := github.FetchAndExtract(orgRepo, installRef)
 		if err != nil {
 			return err
 		}
@@ -56,6 +61,11 @@ Examples:
 			return err
 		}
 
+		if len(installed) == 0 {
+			fmt.Println("No matching skills found.")
+			return nil
+		}
+
 		for _, name := range installed {
 			fmt.Printf("  ✓ %s\n", name)
 		}
@@ -67,5 +77,6 @@ Examples:
 func init() {
 	installCmd.Flags().StringSliceVar(&installOnly, "only", nil, "Only install specific skills (comma-separated skill names)")
 	installCmd.Flags().StringVar(&installPrefix, "prefix", "", "Custom prefix for skill directory names (default: org__repo)")
+	installCmd.Flags().StringVar(&installRef, "ref", "", "Branch, tag, or commit SHA to install from (default: repo's default branch)")
 	rootCmd.AddCommand(installCmd)
 }

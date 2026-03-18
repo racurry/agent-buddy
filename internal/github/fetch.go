@@ -12,14 +12,33 @@ import (
 )
 
 // FetchAndExtract downloads a GitHub repo tarball and extracts it to a temp directory.
-// Returns the path to the extracted repo root directory.
-func FetchAndExtract(orgRepo string) (string, error) {
+// The ref parameter can be a branch, tag, or commit SHA. If empty, tries "main" then "master".
+func FetchAndExtract(orgRepo, ref string) (string, error) {
 	parts := strings.SplitN(orgRepo, "/", 2)
 	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
 		return "", fmt.Errorf("invalid repo format %q, expected org/repo", orgRepo)
 	}
 
-	url := fmt.Sprintf("https://github.com/%s/tarball/main", orgRepo)
+	if ref != "" {
+		return fetchTarball(orgRepo, ref)
+	}
+
+	// Try main, then master
+	tmpDir, err := fetchTarball(orgRepo, "main")
+	if err == nil {
+		return tmpDir, nil
+	}
+
+	tmpDir, err = fetchTarball(orgRepo, "master")
+	if err == nil {
+		return tmpDir, nil
+	}
+
+	return "", fmt.Errorf("could not find %q (tried main and master branches)", orgRepo)
+}
+
+func fetchTarball(orgRepo, ref string) (string, error) {
+	url := fmt.Sprintf("https://github.com/%s/tarball/%s", orgRepo, ref)
 
 	resp, err := http.Get(url)
 	if err != nil {
@@ -27,6 +46,9 @@ func FetchAndExtract(orgRepo string) (string, error) {
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode == 404 {
+		return "", fmt.Errorf("not found: %s at ref %q", orgRepo, ref)
+	}
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("GitHub returned status %d for %s", resp.StatusCode, url)
 	}

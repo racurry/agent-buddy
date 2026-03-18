@@ -8,7 +8,7 @@ Shim tool that helps stuff work across multiple coding agents.
 agent-buddy install racurry/neat-little-package     # Install skills from a claude code marketplace into ~/.agents/skills
 ```
 
-## Set up
+## Change things
 
 ```sh
 brew install goreleaser           # Install goreleaser for building and releasing the tool

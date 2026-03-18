@@ -16,7 +16,7 @@ func TestFetchAndExtract_InvalidFormats(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		_, err := FetchAndExtract(tt.input)
+		_, err := FetchAndExtract(tt.input, "main")
 		if err == nil {
 			t.Errorf("expected error for input %q, got nil", tt.input)
 		}

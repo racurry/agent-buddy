@@ -21,7 +21,10 @@
       "Bash(./agent-buddy uninstall:*)",
       "Bash(go test:*)",
       "Bash(goreleaser --version)",
-      "Bash(goreleaser check:*)"
+      "Bash(goreleaser check:*)",
+      "Bash(goreleaser build:*)",
+      "WebFetch(domain:code.visualstudio.com)",
+      "Bash(git add:*)"
     ]
   }
 }
