@@ -24,8 +24,3 @@ archives:
 
 changelog:
   sort: asc
-
-release:
-  github:
-    owner: agenthubdev
-    name: agent-buddy
