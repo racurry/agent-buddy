@@ -1,8 +1,9 @@
 # Agent Buddy
 
-Shimming together agentic coding stuff.
+Shimming together agentic coding stuff.  Patching stupid holes.
 
 Features:
+
 - Installs skills from claude plugin marketplace repo into `~/.agents/skills`
 
 ## Usage
