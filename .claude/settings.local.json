@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(domain:developers.openai.com)",
+      "WebFetch(domain:geminicli.com)",
+      "WebFetch(domain:agents.md)",
+      "Bash(find:*)",
+      "Bash(chmod:*)",
+      "Bash(./agent-buddy install:*)",
+      "Bash(./agent-buddy list:*)",
+      "Bash(direnv allow:*)",
+      "Bash(source .envrc)",
+      "Bash(go version:*)",
+      "Bash(go mod:*)",
+      "Bash(go get:*)",
+      "Bash(go build:*)",
+      "Bash(./agent-buddy --help)",
+      "Bash(./agent-buddy version:*)",
+      "WebFetch(domain:agentskills.org)",
+      "Bash(./agent-buddy uninstall:*)",
+      "Bash(go test:*)",
+      "Bash(goreleaser --version)",
+      "Bash(goreleaser check:*)"
+    ]
+  }
+}
