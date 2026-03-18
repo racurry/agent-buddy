@@ -23,15 +23,26 @@ The repo is downloaded as a tarball, scanned for directories containing
 a SKILL.md file, and each discovered skill is copied to
 ~/.agents/skills/{prefix}__{skill-name}.
 
-By default, the repo's default branch is used. Use --ref to specify a
-branch, tag, or commit SHA.
+By default, the installer tries the repo's main branch and then master.
+Use --ref to specify a branch, tag, or commit SHA explicitly.
 
 The default prefix is {org}__{repo} (e.g., anthropics__skills), but can
 be overridden with --prefix. Use --only to pick specific skills.
 
+Skill naming is deterministic:
+  - In Claude plugin repos, installed names are namespaced by plugin name
+    (for example, myrepo__mr-sparkle__config)
+  - In generic skill collections rooted at skills/ or skill/, that wrapper
+    directory is ignored (for example, myrepo__utilities__config)
+  - Otherwise, repo-relative paths are used to keep names unique
+
+If --only matches more than one skill basename, the command errors and
+prints the plugin-scoped or path-scoped selectors you can use instead.
+
 Examples:
   agent-buddy install anthropics/skills
   agent-buddy install anthropics/skills --only pdf,docx
+  agent-buddy install racurry/neat-little-package --only mr-sparkle/config
   agent-buddy install anthropics/skills --only pdf --prefix anthropics
   agent-buddy install anthropics/skills --ref v1.0.0`,
 	Args: cobra.ExactArgs(1),
@@ -75,8 +86,8 @@ Examples:
 }
 
 func init() {
-	installCmd.Flags().StringSliceVar(&installOnly, "only", nil, "Only install specific skills (comma-separated skill names)")
+	installCmd.Flags().StringSliceVar(&installOnly, "only", nil, "Only install specific skills (comma-separated names or selectors like plugin/skill)")
 	installCmd.Flags().StringVar(&installPrefix, "prefix", "", "Custom prefix for skill directory names (default: org__repo)")
-	installCmd.Flags().StringVar(&installRef, "ref", "", "Branch, tag, or commit SHA to install from (default: repo's default branch)")
+	installCmd.Flags().StringVar(&installRef, "ref", "", "Branch, tag, or commit SHA to install from (default: try main, then master)")
 	rootCmd.AddCommand(installCmd)
 }

@@ -19,6 +19,19 @@ func makeSkill(t *testing.T, root, name, content string) {
 	}
 }
 
+func makePlugin(t *testing.T, root, name string) {
+	t.Helper()
+	pluginDir := filepath.Join(root, name)
+	manifestDir := filepath.Join(pluginDir, ".claude-plugin")
+	if err := os.MkdirAll(manifestDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	manifest := `{"name":"` + name + `","version":"1.0.0"}`
+	if err := os.WriteFile(filepath.Join(manifestDir, "plugin.json"), []byte(manifest), 0644); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestDiscoverSkills_FindsSkills(t *testing.T) {
 	root := t.TempDir()
 	makeSkill(t, root, "pdf", "---\nname: pdf\n---")
@@ -169,6 +182,9 @@ func TestInstallTo_OverwritesExisting(t *testing.T) {
 	dest := t.TempDir()
 
 	makeSkill(t, src, "pdf", "---\nname: pdf\n---\n# Version 1")
+	if err := os.WriteFile(filepath.Join(src, "pdf", "legacy.txt"), []byte("legacy"), 0644); err != nil {
+		t.Fatal(err)
+	}
 
 	if _, err := InstallTo(dest, "org__repo", src, nil); err != nil {
 		t.Fatal(err)
@@ -176,6 +192,9 @@ func TestInstallTo_OverwritesExisting(t *testing.T) {
 
 	// Update the source skill
 	os.WriteFile(filepath.Join(src, "pdf", "SKILL.md"), []byte("---\nname: pdf\n---\n# Version 2"), 0644)
+	if err := os.Remove(filepath.Join(src, "pdf", "legacy.txt")); err != nil {
+		t.Fatal(err)
+	}
 
 	if _, err := InstallTo(dest, "org__repo", src, nil); err != nil {
 		t.Fatal(err)
@@ -187,6 +206,9 @@ func TestInstallTo_OverwritesExisting(t *testing.T) {
 	}
 	if string(content) != "---\nname: pdf\n---\n# Version 2" {
 		t.Errorf("expected version 2, got: %s", content)
+	}
+	if _, err := os.Stat(filepath.Join(dest, "org__repo__pdf", "legacy.txt")); !os.IsNotExist(err) {
+		t.Error("legacy file should not survive replacement")
 	}
 }
 
@@ -239,5 +261,128 @@ func TestInstallTo_SkipsHiddenDirs(t *testing.T) {
 
 	if _, err := os.Stat(filepath.Join(dest, "org__repo__pdf", ".git")); !os.IsNotExist(err) {
 		t.Error(".git directory should have been skipped")
+	}
+}
+
+func TestInstallTo_NestedSkillsUseRelativePathNames(t *testing.T) {
+	src := t.TempDir()
+	dest := t.TempDir()
+
+	makePlugin(t, filepath.Join(src, "plugins"), "alpha")
+	makePlugin(t, filepath.Join(src, "plugins"), "beta")
+	makeSkill(t, filepath.Join(src, "plugins", "alpha", "skills"), "pdf", "---\nname: pdf\n---")
+	makeSkill(t, filepath.Join(src, "plugins", "beta", "skills"), "pdf", "---\nname: pdf\n---")
+
+	installed, err := InstallTo(dest, "org__repo", src, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	sort.Strings(installed)
+	expected := []string{
+		"org__repo__alpha__pdf",
+		"org__repo__beta__pdf",
+	}
+	if len(installed) != len(expected) {
+		t.Fatalf("expected %d installed skills, got %d", len(expected), len(installed))
+	}
+	for i := range expected {
+		if installed[i] != expected[i] {
+			t.Fatalf("expected %s, got %s", expected[i], installed[i])
+		}
+	}
+}
+
+func TestInstallTo_StripsSkillsCollectionRoot(t *testing.T) {
+	src := t.TempDir()
+	dest := t.TempDir()
+
+	makeSkill(t, filepath.Join(src, "skills"), "pdf", "---\nname: pdf\n---")
+	makeSkill(t, filepath.Join(src, "skills", "utilities"), "config", "---\nname: config\n---")
+
+	installed, err := InstallTo(dest, "org__repo", src, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	sort.Strings(installed)
+	expected := []string{
+		"org__repo__pdf",
+		"org__repo__utilities__config",
+	}
+	if len(installed) != len(expected) {
+		t.Fatalf("expected %d installed skills, got %d", len(expected), len(installed))
+	}
+	for i := range expected {
+		if installed[i] != expected[i] {
+			t.Fatalf("expected %s, got %s", expected[i], installed[i])
+		}
+	}
+}
+
+func TestInstallTo_OnlyRejectsAmbiguousBasename(t *testing.T) {
+	src := t.TempDir()
+	dest := t.TempDir()
+
+	makePlugin(t, filepath.Join(src, "plugins"), "alpha")
+	makePlugin(t, filepath.Join(src, "plugins"), "beta")
+	makeSkill(t, filepath.Join(src, "plugins", "alpha", "skills"), "pdf", "---\nname: pdf\n---")
+	makeSkill(t, filepath.Join(src, "plugins", "beta", "skills"), "pdf", "---\nname: pdf\n---")
+
+	_, err := InstallTo(dest, "org__repo", src, []string{"pdf"})
+	if err == nil {
+		t.Fatal("expected ambiguous --only error")
+	}
+	if got := err.Error(); got != "ambiguous --only \"pdf\"; use one of: alpha/pdf, beta/pdf" {
+		t.Fatalf("unexpected error: %s", got)
+	}
+}
+
+func TestInstallTo_OnlyMatchesTrimmedCollectionPath(t *testing.T) {
+	src := t.TempDir()
+	dest := t.TempDir()
+
+	makeSkill(t, filepath.Join(src, "skills", "utilities"), "config", "---\nname: config\n---")
+
+	installed, err := InstallTo(dest, "org__repo", src, []string{"utilities/config"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(installed) != 1 || installed[0] != "org__repo__utilities__config" {
+		t.Fatalf("unexpected installed skills: %v", installed)
+	}
+}
+
+func TestInstallTo_OnlyMatchesRelativePath(t *testing.T) {
+	src := t.TempDir()
+	dest := t.TempDir()
+
+	makePlugin(t, filepath.Join(src, "plugins"), "alpha")
+	makePlugin(t, filepath.Join(src, "plugins"), "beta")
+	makeSkill(t, filepath.Join(src, "plugins", "alpha", "skills"), "pdf", "---\nname: pdf\n---")
+	makeSkill(t, filepath.Join(src, "plugins", "beta", "skills"), "pdf", "---\nname: pdf\n---")
+
+	installed, err := InstallTo(dest, "org__repo", src, []string{"beta/pdf"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(installed) != 1 || installed[0] != "org__repo__beta__pdf" {
+		t.Fatalf("unexpected installed skills: %v", installed)
+	}
+}
+
+func TestInstallTo_OnlyMatchesRepoRelativePath(t *testing.T) {
+	src := t.TempDir()
+	dest := t.TempDir()
+
+	makePlugin(t, filepath.Join(src, "plugins"), "beta")
+	makeSkill(t, filepath.Join(src, "plugins", "beta", "skills"), "pdf", "---\nname: pdf\n---")
+
+	installed, err := InstallTo(dest, "org__repo", src, []string{"plugins/beta/skills/pdf"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(installed) != 1 || installed[0] != "org__repo__beta__pdf" {
+		t.Fatalf("unexpected installed skills: %v", installed)
 	}
 }

@@ -9,7 +9,14 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
+
+var githubTarballBaseURL = "https://github.com"
+
+var httpClient = &http.Client{
+	Timeout: 20 * time.Second,
+}
 
 // FetchAndExtract downloads a GitHub repo tarball and extracts it to a temp directory.
 // The ref parameter can be a branch, tag, or commit SHA. If empty, tries "main" then "master".
@@ -38,9 +45,9 @@ func FetchAndExtract(orgRepo, ref string) (string, error) {
 }
 
 func fetchTarball(orgRepo, ref string) (string, error) {
-	url := fmt.Sprintf("https://github.com/%s/tarball/%s", orgRepo, ref)
+	url := fmt.Sprintf("%s/%s/tarball/%s", strings.TrimRight(githubTarballBaseURL, "/"), orgRepo, ref)
 
-	resp, err := http.Get(url)
+	resp, err := httpClient.Get(url)
 	if err != nil {
 		return "", fmt.Errorf("fetching repo: %w", err)
 	}

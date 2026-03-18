@@ -19,6 +19,8 @@ can be customized with --prefix on install.
 Quick start:
   agent-buddy install anthropics/skills              Install all skills from a repo
   agent-buddy install anthropics/skills --only pdf   Install just one skill
+  agent-buddy install racurry/neat-little-package --only mr-sparkle/config
+                                                      Disambiguate by plugin/path when needed
   agent-buddy list                                   See what's installed
   agent-buddy uninstall anthropics__skills__pdf       Remove a skill`,
 }
