@@ -11,7 +11,7 @@ func TestRootCommandHasExpectedSubcommands(t *testing.T) {
 		names = append(names, command.Name())
 	}
 
-	for _, expected := range []string{"install", "list", "uninstall", "version"} {
+	for _, expected := range []string{"install", "list", "mcpb", "uninstall", "version"} {
 		if !slices.Contains(names, expected) {
 			t.Fatalf("expected subcommand %q to be registered, got %v", expected, names)
 		}
